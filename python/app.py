@@ -1,10 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
+import random
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///restaurant.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'your-secret-key-here'  # Required for flash messages
 db = SQLAlchemy(app)
 
 class Orders(db.Model):
@@ -94,6 +96,29 @@ def delete_order(id):
     order = Orders.query.get_or_404(id)
     db.session.delete(order)
     db.session.commit()
+    return redirect(url_for('get_orders'))
+
+@app.route('/orders/<int:id>/reduce', methods=['POST'])
+def reduce_order_quantity(id):
+    order = Orders.query.get_or_404(id)
+    if order.quantity > 0:
+        order.quantity -= 1
+    db.session.commit()
+    return redirect(url_for('get_orders'))
+
+@app.route('/orders/<int:id>/auto-order', methods=['POST'])
+def auto_order(id):
+    order = Orders.query.get_or_404(id)
+    # Add 5 units more than the threshold
+    order.quantity = order.autobuy_threshold + 5
+    
+    # Update the expiry date by adding a random number of days between 5 and 20
+    random_days = random.randint(5, 20)
+    order.expiry_date = datetime.now().date() + timedelta(days=random_days)
+    
+    db.session.commit()
+    
+    flash(f'Order has been sent and received. The old stock has been sent to chef for urgent use or for garbage. New expiry date: {order.expiry_date.strftime("%Y-%m-%d")}', 'success')
     return redirect(url_for('get_orders'))
 
 # API endpoints for potential frontend integration
