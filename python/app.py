@@ -9,6 +9,23 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your-secret-key-here'  # Required for flash messages
 db = SQLAlchemy(app)
 
+class Recipe(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<Recipe {self.name}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'price': self.price,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        }
+
 class Orders(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -149,6 +166,52 @@ def create_order_api():
 @app.route('/calculate-price', methods=['GET'])
 def calculate_price():
     return render_template('calculate_price.html')
+
+@app.route('/recipes', methods=['GET'])
+def view_recipes():
+    recipes = Recipe.query.all()
+    return render_template('recipes.html', recipes=recipes)
+
+@app.route('/recipes/save', methods=['POST'])
+def save_recipe():
+    data = request.get_json()
+    
+    try:
+        name = data.get('name')
+        price = float(data.get('price'))
+        
+        # Validate data
+        if not name or name.strip() == '':
+            return jsonify({'error': 'Recipe name is required'}), 400
+        
+        if price <= 0:
+            return jsonify({'error': 'Price must be greater than 0'}), 400
+            
+        # Create new recipe
+        new_recipe = Recipe(
+            name=name,
+            price=price
+        )
+        
+        db.session.add(new_recipe)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Recipe saved successfully', 'recipe': new_recipe.to_dict()}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/recipes/<int:id>/delete', methods=['POST'])
+def delete_recipe(id):
+    recipe = Recipe.query.get_or_404(id)
+    
+    try:
+        db.session.delete(recipe)
+        db.session.commit()
+        flash('Recipe deleted successfully', 'success')
+    except Exception as e:
+        flash(f'Error deleting recipe: {str(e)}', 'danger')
+        
+    return redirect(url_for('view_recipes'))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)

@@ -72,6 +72,29 @@
                 </tr>
             </tfoot>
         </table>
+        
+        <div class="mt-4">
+            <button type="button" class="btn btn-primary" id="save-recipe">Save Recipe</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="saveConfirmationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Recipe Saved</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Your recipe has been saved successfully!</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="/recipes" class="btn btn-primary">View All Recipes</a>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -82,9 +105,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const ingredientsContainer = document.getElementById('ingredients-container');
     const addIngredientBtn = document.getElementById('add-ingredient');
     const calculateBtn = document.getElementById('calculate-price');
+    const saveRecipeBtn = document.getElementById('save-recipe');
     const resultCard = document.getElementById('result-card');
     const ingredientsSummary = document.getElementById('ingredients-summary');
     const totalPriceElement = document.getElementById('total-price');
+    let currentTotalPrice = 0;
+    const saveConfirmationModal = new bootstrap.Modal(document.getElementById('saveConfirmationModal'));
     
     // Add new ingredient row
     addIngredientBtn.addEventListener('click', function() {
@@ -151,6 +177,9 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
+        // Store current total price for saving later
+        currentTotalPrice = totalPrice;
+        
         // Clear previous results
         ingredientsSummary.innerHTML = '';
         
@@ -171,6 +200,47 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Show results
         resultCard.style.display = 'block';
+    });
+    
+    // Save recipe
+    saveRecipeBtn.addEventListener('click', function() {
+        const dishName = document.getElementById('dish-name').value;
+        
+        // Validate
+        if (!dishName || dishName.trim() === '') {
+            alert('Please enter a dish name before saving');
+            return;
+        }
+        
+        if (currentTotalPrice <= 0) {
+            alert('Please calculate a valid price before saving');
+            return;
+        }
+        
+        // Send data to server
+        fetch('/recipes/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: dishName,
+                price: currentTotalPrice
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show confirmation modal
+                saveConfirmationModal.show();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error saving recipe:', error);
+            alert('Error saving recipe. Please try again.');
+        });
     });
 });
 </script>
