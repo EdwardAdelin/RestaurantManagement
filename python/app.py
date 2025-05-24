@@ -26,6 +26,54 @@ class Recipe(db.Model):
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }
 
+class KitchenOrder(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    table_number = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(20), default='pending')  # pending, ready, completed
+    special_notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    
+    # Relationship with order items
+    items = db.relationship('KitchenOrderItem', backref='order', lazy=True, cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f'<KitchenOrder {self.id} - Table {self.table_number}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'table_number': self.table_number,
+            'status': self.status,
+            'special_notes': self.special_notes,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'completed_at': self.completed_at.strftime('%Y-%m-%d %H:%M:%S') if self.completed_at else None,
+            'items': [item.to_dict() for item in self.items]
+        }
+
+class KitchenOrderItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('kitchen_order.id'), nullable=False)
+    recipe_id = db.Column(db.Integer, db.ForeignKey('recipe.id'), nullable=False)
+    quantity = db.Column(db.Integer, default=1)
+    special_instructions = db.Column(db.Text, nullable=True)
+    
+    # Relationship with recipe
+    recipe = db.relationship('Recipe', backref='order_items')
+    
+    def __repr__(self):
+        return f'<KitchenOrderItem {self.id} - Recipe {self.recipe_id}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'order_id': self.order_id,
+            'recipe_id': self.recipe_id,
+            'recipe_name': self.recipe.name if self.recipe else 'Unknown',
+            'quantity': self.quantity,
+            'special_instructions': self.special_instructions
+        }
+
 class Orders(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -212,6 +260,79 @@ def delete_recipe(id):
         flash(f'Error deleting recipe: {str(e)}', 'danger')
         
     return redirect(url_for('view_recipes'))
+
+# Kitchen Display System routes
+@app.route('/waiter', methods=['GET'])
+def waiter_interface():
+    recipes = Recipe.query.all()
+    return render_template('waiter.html', recipes=recipes)
+
+@app.route('/chef', methods=['GET'])
+def chef_interface():
+    pending_orders = KitchenOrder.query.filter_by(status='pending').order_by(KitchenOrder.created_at).all()
+    return render_template('chef.html', orders=pending_orders)
+
+@app.route('/kitchen-orders', methods=['POST'])
+def create_kitchen_order():
+    data = request.get_json()
+    
+    try:
+        # Create new order
+        new_order = KitchenOrder(
+            table_number=data['tableNumber'],
+            special_notes=data.get('specialNotes', '')
+        )
+        
+        db.session.add(new_order)
+        db.session.flush()  # Get the order ID
+        
+        # Add items to the order
+        for item in data['items']:
+            order_item = KitchenOrderItem(
+                order_id=new_order.id,
+                recipe_id=item['recipeId'],
+                quantity=item['quantity'],
+                special_instructions=item.get('specialInstructions', '')
+            )
+            db.session.add(order_item)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Order created successfully',
+            'order': new_order.to_dict()
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/kitchen-orders/<int:order_id>/status', methods=['PUT'])
+def update_kitchen_order_status(order_id):
+    order = KitchenOrder.query.get_or_404(order_id)
+    data = request.get_json()
+    
+    try:
+        order.status = data['status']
+        
+        # If marked as completed, set completed timestamp
+        if order.status == 'completed':
+            order.completed_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Order status updated successfully',
+            'order': order.to_dict()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/kitchen-orders/pending', methods=['GET'])
+def get_pending_kitchen_orders_api():
+    orders = KitchenOrder.query.filter_by(status='pending').order_by(KitchenOrder.created_at).all()
+    return jsonify([order.to_dict() for order in orders])
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)

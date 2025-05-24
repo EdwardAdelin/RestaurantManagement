@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Waiter Interface</h1>
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5>Create New Order</h5>
+            </div>
+            <div class="card-body">
+                <form id="order-form">
+                    <div class="mb-3">
+                        <label for="table-number" class="form-label">Table Number:</label>
+                        <input type="number" class="form-control" id="table-number" min="1" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="special-notes" class="form-label">Special Notes:</label>
+                        <textarea class="form-control" id="special-notes" rows="2" placeholder="Any special notes for the entire order..."></textarea>
+                    </div>
+
+                    <hr>
+                    <h5>Select Dishes</h5>
+                    <div id="order-items">
+                        <!-- First item row is added by default -->
+                        <div class="order-item-row mb-3 p-3 border rounded">
+                            <div class="row mb-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Recipe:</label>
+                                    <select class="form-select recipe-select" required>
+                                        <option value="" disabled selected>Select a dish</option>
+                                        {% for recipe in recipes %}
+                                        <option value="{{ recipe.id }}" data-price="{{ recipe.price }}">{{ recipe.name }} - ${{ "%.2f"|format(recipe.price) }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Quantity:</label>
+                                    <input type="number" class="form-control quantity-input" min="1" value="1" required>
+                                </div>
+                                <div class="col-md-3 d-flex align-items-end">
+                                    <button type="button" class="btn btn-danger remove-item-btn">Remove</button>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <label class="form-label">Special Instructions:</label>
+                                    <textarea class="form-control special-instructions" rows="2" placeholder="Any special instructions for this dish..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-info mb-3" id="add-item-btn">Add Another Dish</button>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg mt-3">Submit Order</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5>Order Preview</h5>
+            </div>
+            <div class="card-body">
+                <div id="order-preview">
+                    <div class="mb-3">
+                        <strong>Table: </strong><span id="preview-table"></span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Special Notes: </strong><span id="preview-notes"></span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Items:</strong>
+                        <ul id="preview-items" class="list-group mt-2">
+                            <!-- Items will be populated dynamically -->
+                        </ul>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Total: $</strong><span id="preview-total">0.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5>Order Status</h5>
+            </div>
+            <div class="card-body">
+                <div id="order-status">
+                    <div class="alert alert-success">
+                        Order creation successful! The order has been sent to the kitchen.
+                    </div>
+                    <div class="mt-3 text-center">
+                        <button type="button" class="btn btn-primary" id="new-order-btn">Create New Order</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const orderForm = document.getElementById('order-form');
+    const orderItems = document.getElementById('order-items');
+    const addItemBtn = document.getElementById('add-item-btn');
+    const orderStatus = document.getElementById('order-status');
+    const newOrderBtn = document.getElementById('new-order-btn');
+    
+    // Hide order status initially
+    orderStatus.style.display = 'none';
+    
+    // Add item functionality
+    addItemBtn.addEventListener('click', function() {
+        const itemRow = document.createElement('div');
+        itemRow.className = 'order-item-row mb-3 p-3 border rounded';
+        itemRow.innerHTML = `
+            <div class="row mb-2">
+                <div class="col-md-6">
+                    <label class="form-label">Recipe:</label>
+                    <select class="form-select recipe-select" required>
+                        <option value="" disabled selected>Select a dish</option>
+                        {% for recipe in recipes %}
+                        <option value="{{ recipe.id }}" data-price="{{ recipe.price }}">{{ recipe.name }} - ${{ "%.2f"|format(recipe.price) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Quantity:</label>
+                    <input type="number" class="form-control quantity-input" min="1" value="1" required>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger remove-item-btn">Remove</button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <label class="form-label">Special Instructions:</label>
+                    <textarea class="form-control special-instructions" rows="2" placeholder="Any special instructions for this dish..."></textarea>
+                </div>
+            </div>
+        `;
+        orderItems.appendChild(itemRow);
+        
+        // Add event listener to the new remove button
+        itemRow.querySelector('.remove-item-btn').addEventListener('click', function() {
+            itemRow.remove();
+            updatePreview();
+        });
+        
+        // Add event listeners for preview updates
+        itemRow.querySelector('.recipe-select').addEventListener('change', updatePreview);
+        itemRow.querySelector('.quantity-input').addEventListener('input', updatePreview);
+        itemRow.querySelector('.special-instructions').addEventListener('input', updatePreview);
+    });
+    
+    // Remove item functionality (for initial item)
+    document.querySelector('.remove-item-btn').addEventListener('click', function() {
+        if (document.querySelectorAll('.order-item-row').length > 1) {
+            this.closest('.order-item-row').remove();
+            updatePreview();
+        } else {
+            alert('You need at least one dish in your order!');
+        }
+    });
+    
+    // Update preview when form fields change
+    document.getElementById('table-number').addEventListener('input', updatePreview);
+    document.getElementById('special-notes').addEventListener('input', updatePreview);
+    document.querySelector('.recipe-select').addEventListener('change', updatePreview);
+    document.querySelector('.quantity-input').addEventListener('input', updatePreview);
+    document.querySelector('.special-instructions').addEventListener('input', updatePreview);
+    
+    // Preview functionality
+    function updatePreview() {
+        const tableNumber = document.getElementById('table-number').value || 'Not specified';
+        const specialNotes = document.getElementById('special-notes').value || 'None';
+        
+        document.getElementById('preview-table').textContent = tableNumber;
+        document.getElementById('preview-notes').textContent = specialNotes;
+        
+        // Clear existing preview items
+        const previewItems = document.getElementById('preview-items');
+        previewItems.innerHTML = '';
+        
+        // Calculate total and add items to preview
+        let total = 0;
+        document.querySelectorAll('.order-item-row').forEach(row => {
+            const recipeSelect = row.querySelector('.recipe-select');
+            const quantity = parseInt(row.querySelector('.quantity-input').value) || 0;
+            const specialInstructions = row.querySelector('.special-instructions').value;
+            
+            if (recipeSelect.selectedIndex > 0) {
+                const selectedOption = recipeSelect.options[recipeSelect.selectedIndex];
+                const recipeName = selectedOption.text.split(' - ')[0];
+                const price = parseFloat(selectedOption.dataset.price);
+                const itemTotal = price * quantity;
+                total += itemTotal;
+                
+                const listItem = document.createElement('li');
+                listItem.className = 'list-group-item';
+                listItem.innerHTML = `
+                    <div><strong>${quantity}x ${recipeName}</strong> - $${itemTotal.toFixed(2)}</div>
+                    ${specialInstructions ? `<div class="text-muted small">Note: ${specialInstructions}</div>` : ''}
+                `;
+                previewItems.appendChild(listItem);
+            }
+        });
+        
+        document.getElementById('preview-total').textContent = total.toFixed(2);
+    }
+    
+    // Handle form submission
+    orderForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Validate form
+        const tableNumber = parseInt(document.getElementById('table-number').value);
+        if (!tableNumber) {
+            alert('Please enter a valid table number');
+            return;
+        }
+        
+        // Collect order items
+        const items = [];
+        let hasItems = false;
+        
+        document.querySelectorAll('.order-item-row').forEach(row => {
+            const recipeSelect = row.querySelector('.recipe-select');
+            if (recipeSelect.selectedIndex > 0) {
+                hasItems = true;
+                items.push({
+                    recipeId: parseInt(recipeSelect.value),
+                    quantity: parseInt(row.querySelector('.quantity-input').value),
+                    specialInstructions: row.querySelector('.special-instructions').value
+                });
+            }
+        });
+        
+        if (!hasItems) {
+            alert('Please select at least one dish');
+            return;
+        }
+        
+        // Create order data
+        const orderData = {
+            tableNumber: tableNumber,
+            specialNotes: document.getElementById('special-notes').value,
+            items: items
+        };
+        
+        // Send order to server
+        fetch('/kitchen-orders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(orderData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Show success message
+            orderForm.style.display = 'none';
+            orderStatus.style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('There was a problem submitting your order. Please try again.');
+        });
+    });
+    
+    // New order button
+    newOrderBtn.addEventListener('click', function() {
+        orderForm.reset();
+        
+        // Remove all items except the first one
+        const items = document.querySelectorAll('.order-item-row');
+        for (let i = 1; i < items.length; i++) {
+            items[i].remove();
+        }
+        
+        // Reset the first item
+        const firstItem = document.querySelector('.order-item-row');
+        firstItem.querySelector('.recipe-select').selectedIndex = 0;
+        firstItem.querySelector('.quantity-input').value = 1;
+        firstItem.querySelector('.special-instructions').value = '';
+        
+        // Show the form and hide the status
+        orderForm.style.display = 'block';
+        orderStatus.style.display = 'none';
+        
+        // Update preview
+        updatePreview();
+    });
+    
+    // Initialize preview
+    updatePreview();
+});
+</script>
+{% endblock %}
