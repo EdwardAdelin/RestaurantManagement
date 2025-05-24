@@ -146,5 +146,9 @@ def create_order_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+@app.route('/calculate-price', methods=['GET'])
+def calculate_price():
+    return render_template('calculate_price.html')
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
