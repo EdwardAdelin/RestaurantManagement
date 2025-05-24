@@ -25,9 +25,11 @@
                 <td>{{ order.name }}</td>
                 <td>{{ order.quantity }} kg</td>
                 <td>{{ order.expiry_date.strftime('%Y-%m-%d') }}</td>
-                <td>{{ order.autobuy_threshold }} kg</td>                <td>
-                    {% if order.quantity <= order.autobuy_threshold %}
+                <td>{{ order.autobuy_threshold }} kg</td>                <td>                    {% if order.quantity <= order.autobuy_threshold %}
                     <span class="badge bg-danger">Reorder</span>
+                    <form method="POST" action="{{ url_for('auto_order', id=order.id) }}" style="display: inline; margin-left: 5px;">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="confirmAutoOrder('{{ order.name }}', this.form)">Auto-order</button>
+                    </form>
                     {% else %}
                         {% set expiry_status = order.get_expiry_status() %}
                         {% if expiry_status == "expired" %}
@@ -40,6 +42,9 @@
                     {% endif %}
                 </td>
                 <td>
+                    <form method="POST" action="{{ url_for('reduce_order_quantity', id=order.id) }}" style="display: inline;">
+                        <button type="submit" class="btn btn-sm btn-info" title="Reduce quantity by 1">-1</button>
+                    </form>
                     <a href="{{ url_for('edit_order', id=order.id) }}" class="btn btn-sm btn-warning">Edit</a>
                     <form method="POST" action="{{ url_for('delete_order', id=order.id) }}" style="display: inline;">
                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this order?')">Delete</button>

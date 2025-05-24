@@ -95,3 +95,26 @@ form .form-control:focus {
         border: 0;
     }
 }
+
+/* KDS (Kitchen Display System) Styles */
+.kitchen-order {
+    transition: all 0.3s ease;
+    border-left: 4px solid #ffc107;
+}
+
+.kitchen-order:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.kitchen-order .card-header {
+    font-weight: bold;
+}
+
+.order-item-row {
+    transition: background-color 0.3s ease;
+}
+
+.order-item-row:hover {
+    background-color: #f8f9fa;
+}
