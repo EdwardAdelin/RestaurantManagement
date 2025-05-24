@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">Restaurant Inventory Management</h1>
+    <p class="lead">Manage your restaurant inventory orders efficiently.</p>
+    <hr class="my-4">
+    <p>Track food items, quantities, expiry dates, and set auto-buy thresholds.</p>
+    <a class="btn btn-primary btn-lg" href="/orders" role="button">View Orders</a>
+    <a class="btn btn-success btn-lg" href="/orders/add" role="button">Add New Order</a>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Track Inventory</h5>
+                <p class="card-text">Keep track of all your food items and supplies with detailed information.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Manage Expiry Dates</h5>
+                <p class="card-text">Never miss expiry dates with our organized tracking system.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Auto-Buy Alerts</h5>
+                <p class="card-text">Set thresholds for automatic purchase alerts when supplies run low.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
